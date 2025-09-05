@@ -13,7 +13,9 @@ BERT_NAME="bert-base-uncased"
 
 lr=3e-5
 
-CUDA_VISIBLE_DEVICES=1 python -u run.py \
+GPU_ID=${1:-0}
+
+CUDA_VISIBLE_DEVICES=${GPU_ID} python -u run.py \
         --dataset_name=${DATASET_NAME} \
         --bert_name=${BERT_NAME} \
         --num_epochs=30 \

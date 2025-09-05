@@ -6,7 +6,9 @@ RESNET_NAME="models/resnet50/resnet50-11ad3fa6.pth"
 LOAD_PATH="ckpt/re/best_model.pth"
 SEED=1234
 
-CUDA_VISIBLE_DEVICES=0 python -u run.py \
+GPU_ID=${1:-0}
+
+CUDA_VISIBLE_DEVICES=${GPU_ID} python -u run.py \
         --dataset_name=${DATASET_NAME} \
         --bert_name=${BERT_NAME} \
         --seed=${SEED} \
