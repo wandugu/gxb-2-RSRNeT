@@ -2,20 +2,37 @@ import torch
 import os
 from torch import nn
 import torch.nn.functional as F
-from torchcrf import CRF
+from TorchCRF import CRF
 from .modeling_bert import BertModel
 from transformers.modeling_outputs import TokenClassifierOutput
 # from torchvision.models import resnet50
 from transformers import RobertaModel, RobertaConfig, XLMRobertaModel, AlbertModel,BertModel,DistilBertPreTrainedModel
 from fairseq.models.roberta import XLMRModel
+from torchvision.models import resnet50, ResNet50_Weights
 
 class ImageModel(nn.Module):
-    def __init__(self):
+    def __init__(self, weight_path=None):
         super(ImageModel, self).__init__()
         # self.resnet = resnet50(pretrained=True)
         # torch.hub.list('zhanghang1989/ResNeSt', force_reload=True)
         # self.resnet = torch.hub.load('zhanghang1989/ResNeSt', 'resnest50', pretrained=True)
-        self.resnet = torch.hub.load(repo_or_dir="/root/.cache/torch/hub/zhanghang1989_ResNeSt_master/", model="resnest50", trust_repo=True, source='local', pretrained=True)
+        super().__init__()
+        # 不用默认权重，避免联网下载
+        self.resnet = resnet50(weights=None)
+
+        if weight_path:
+            state = torch.load(weight_path, map_location="cpu")
+            # 有的权重包了一层 state_dict，有的 key 带 'module.' 前缀，这里都兼容一下
+            if isinstance(state, dict) and "state_dict" in state:
+                state = state["state_dict"]
+            state = {k.replace("module.", "").replace("model.", ""): v for k, v in state.items()}
+            # 你后面会把 fc 替换成 Identity，所以这里用 strict=False 跳过 fc 权重
+            missing, unexpected = self.resnet.load_state_dict(state, strict=False)
+            # 可选：print(missing, unexpected) 做个检查
+
+        # 去掉分类头，保留特征
+        self.resnet.fc = nn.Identity()
+        self.out_dim = 2048
     def forward(self, x, aux_imgs=None):
         # full image prompt
         prompt_guids = self.get_resnet_prompt(x)    # 4x[bsz, 256, 7, 7]

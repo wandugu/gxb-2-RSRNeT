@@ -143,6 +143,7 @@ def main():
     parser.add_argument('--max_seq', default=128, type=int)
     parser.add_argument('--ignore_idx', default=-100, type=int)
     parser.add_argument('--sample_ratio', default=1.0, type=float, help="only for low resource.")
+    parser.add_argument("--resnet_path", type=str, default=None, help="Local path to resnet/resnest .pth")
 
     args = parser.parse_args()
 
