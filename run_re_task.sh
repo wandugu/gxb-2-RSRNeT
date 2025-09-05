@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 
 DATASET_NAME="MRE"
-BERT_NAME="models/bert-base-uncased"
+BERT_NAME="models/roberta-uncased"
+RESNET_NAME="models/resnet50/resnet50-11ad3fa6.pth"
 
 CUDA_VISIBLE_DEVICES=0 python -u run.py \
         --dataset_name=${DATASET_NAME} \
         --bert_name=${BERT_NAME} \
-        --num_epochs=15 \
+        --num_epochs=3 \
         --batch_size=16 \
         --lr=3e-5 \
         --warmup_ratio=0.06 \
@@ -17,4 +18,5 @@ CUDA_VISIBLE_DEVICES=0 python -u run.py \
         --use_prompt \
         --prompt_len=4 \
         --sample_ratio=1.0 \
-        --save_path='ckpt/re/'
+        --save_path='ckpt/re/' \
+        --resnet_path=${RESNET_NAME}
