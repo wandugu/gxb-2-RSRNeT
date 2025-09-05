@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 DATASET_NAME="MRE"
-BERT_NAME="models/roberta-uncased"
+BERT_NAME="models/roberta-base"
 RESNET_NAME="models/resnet50/resnet50-11ad3fa6.pth"
 
 CUDA_VISIBLE_DEVICES=0 python -u run.py \
