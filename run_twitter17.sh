@@ -26,4 +26,6 @@ CUDA_VISIBLE_DEVICES=3 python -u run.py \
         --use_prompt \
         --prompt_len=4 \
         --sample_ratio=1.0 \
-        --save_path=your_ckpt_path
+        --save_path=your_ckpt_path \
+        --save_epochs=1
+

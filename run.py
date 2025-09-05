@@ -134,6 +134,7 @@ def main():
     parser.add_argument('--prompt_dim', default=800, type=int, help="mid dimension of prompt project layer")
     parser.add_argument('--load_path', default=None, type=str, help="Load model from load_path")
     parser.add_argument('--save_path', default=None, type=str, help="save model at save_path")
+    parser.add_argument('--save_epochs', default=1, type=int, help="save checkpoint every n epochs")
     parser.add_argument('--write_path', default=None, type=str,
                         help="do_test=True, predictions will be write in write_path")
     parser.add_argument('--notes', default="", type=str, help="input some remarks for making save path dir.")
