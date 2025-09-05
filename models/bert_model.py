@@ -72,6 +72,7 @@ class ImageModel(nn.Module):
 class HMNeTREModel(nn.Module):
     def __init__(self, num_labels, tokenizer, args):
         super(HMNeTREModel, self).__init__()
+        self.args = args
         # self.bert = BertModel.from_pretrained(args.bert_name)
         # self.bert = torch.hub.load('pytorch/fairseq', 'roberta.base')
         # self.bert_config = RobertaConfig()
@@ -84,8 +85,6 @@ class HMNeTREModel(nn.Module):
         # self.bert = XLMRModel.from_pretrained('xlmr-base')
         # self.bert_config = self.bert.config
         self.bert.resize_token_embeddings(len(tokenizer))
-        self.args = args
-
         self.dropout = nn.Dropout(0.5)
         self.classifier = nn.Linear(self.bert.config.hidden_size*2, num_labels)
         self.head_start = tokenizer.convert_tokens_to_ids("<s>")
