@@ -19,4 +19,6 @@ CUDA_VISIBLE_DEVICES=0 python -u run.py \
         --prompt_len=4 \
         --sample_ratio=1.0 \
         --save_path='ckpt/re/' \
+        --save_epochs=1 \
         --resnet_path=${RESNET_NAME}
+

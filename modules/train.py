@@ -1,3 +1,4 @@
+import os
 import torch
 from torch import optim
 from tqdm import tqdm
@@ -85,6 +86,10 @@ class RETrainer(BaseTrainer):
 
                 if epoch >= self.args.eval_begin_epoch:
                     self.evaluate(epoch)   # generator to dev.
+                if self.args.save_path is not None and epoch % getattr(self.args, 'save_epochs', 1) == 0:
+                    ckpt_path = os.path.join(self.args.save_path, f"epoch_{epoch}.pth")
+                    torch.save(self.model.state_dict(), ckpt_path)
+                    self.logger.info("Save checkpoint at {}".format(ckpt_path))
             
             pbar.close()
             self.pbar = None
@@ -335,6 +340,10 @@ class NERTrainer(BaseTrainer):
 
                 if epoch >= self.args.eval_begin_epoch:
                     self.evaluate(epoch)   # generator to dev.
+                if self.args.save_path is not None and epoch % getattr(self.args, 'save_epochs', 1) == 0:
+                    ckpt_path = os.path.join(self.args.save_path, f"epoch_{epoch}.pth")
+                    torch.save(self.model.state_dict(), ckpt_path)
+                    self.logger.info("Save checkpoint at {}".format(ckpt_path))
 
             torch.cuda.empty_cache()
             
