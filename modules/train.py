@@ -7,7 +7,7 @@ from sklearn.metrics import classification_report as sk_classification_report
 from seqeval.metrics import classification_report
 from transformers.optimization import get_linear_schedule_with_warmup
 
-from .metrics import eval_result
+from .metrics import eval_result, log_detailed_results
 
 class BaseTrainer(object):
     def train(self):
@@ -119,8 +119,11 @@ class RETrainer(BaseTrainer):
                     pbar.update()
                 # evaluate done
                 pbar.close()
-                sk_result = sk_classification_report(y_true=true_labels, y_pred=pred_labels, labels=list(self.re_dict.values())[1:], target_names=list(self.re_dict.keys())[1:], digits=4)
+                sk_result = sk_classification_report(y_true=true_labels, y_pred=pred_labels,
+                                                    labels=list(self.re_dict.values())[1:],
+                                                    target_names=list(self.re_dict.keys())[1:], digits=4)
                 self.logger.info("%s\n", sk_result)
+                log_detailed_results(true_labels, pred_labels, self.re_dict, self.logger)
                 result = eval_result(true_labels, pred_labels, self.re_dict, self.logger)
                 acc, micro_f1 = round(result['acc']*100, 4), round(result['micro_f1']*100, 4)
                 if self.writer:
@@ -168,8 +171,11 @@ class RETrainer(BaseTrainer):
                     pbar.update()
                 # evaluate done
                 pbar.close()
-                sk_result = sk_classification_report(y_true=true_labels, y_pred=pred_labels, labels=list(self.re_dict.values())[1:], target_names=list(self.re_dict.keys())[1:], digits=4)
+                sk_result = sk_classification_report(y_true=true_labels, y_pred=pred_labels,
+                                                    labels=list(self.re_dict.values())[1:],
+                                                    target_names=list(self.re_dict.keys())[1:], digits=4)
                 self.logger.info("%s\n", sk_result)
+                log_detailed_results(true_labels, pred_labels, self.re_dict, self.logger)
                 result = eval_result(true_labels, pred_labels, self.re_dict, self.logger)
                 acc, micro_f1 = round(result['acc']*100, 4), round(result['micro_f1']*100, 4)
                 if self.writer:

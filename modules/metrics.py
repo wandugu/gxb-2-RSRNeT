@@ -1,3 +1,6 @@
+from sklearn.metrics import confusion_matrix
+
+
 def eval_result(true_labels, pred_result, rel2id, logger, use_name=False):
     correct = 0
     total = len(true_labels)
@@ -44,3 +47,19 @@ def eval_result(true_labels, pred_result, rel2id, logger, use_name=False):
     result = {'acc': acc, 'micro_p': micro_p, 'micro_r': micro_r, 'micro_f1': micro_f1}
     logger.info('Evaluation result: {}.'.format(result))
     return result
+
+
+def log_detailed_results(true_labels, pred_labels, rel2id, logger):
+    """输出每个类别以及总体的测试情况。"""
+    labels = list(rel2id.values())[1:]
+    names = list(rel2id.keys())[1:]
+    cm = confusion_matrix(true_labels, pred_labels, labels=labels)
+    total_samples = int(cm.sum())
+    total_success = int(cm.trace())
+    total_fail = int(total_samples - total_success)
+    for idx, name in enumerate(names):
+        total = int(cm[idx].sum())
+        success = int(cm[idx][idx])
+        fail = int(total - success)
+        logger.info(f"类别{name}: 总数{total}, 成功{success}, 失败{fail}")
+    logger.info(f"总计: 总数{total_samples}, 成功{total_success}, 失败{total_fail}")
