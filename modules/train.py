@@ -258,6 +258,8 @@ class RETrainer(BaseTrainer):
                 }
                 json.dump(item, f, ensure_ascii=False)
                 f.write('\n')
+        print(f"训练/验证集文件输出至{result_dir}目录下{os.path.basename(dst_file)}文件")
+        print(f"模型预测文件输出至{result_dir}目录下{os.path.basename(result_path)}文件")
         self.model.train()
 
     
@@ -578,6 +580,8 @@ class NERTrainer(BaseTrainer):
             for w, p in zip(words, preds):
                 json.dump({'words': w, 'prediction': p}, f, ensure_ascii=False)
                 f.write('\n')
+        print(f"训练/验证集文件输出至{result_dir}目录下{os.path.basename(dst_file)}文件")
+        print(f"模型预测文件输出至{result_dir}目录下{os.path.basename(result_path)}文件")
         self.model.train()
 
 
