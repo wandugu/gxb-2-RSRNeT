@@ -3,6 +3,8 @@ import torch
 from torch import optim
 from tqdm import tqdm
 import random
+import json
+import shutil
 from sklearn.metrics import classification_report as sk_classification_report
 from seqeval.metrics import classification_report
 from transformers.optimization import get_linear_schedule_with_warmup
@@ -95,6 +97,7 @@ class RETrainer(BaseTrainer):
             self.pbar = None
             self.logger.info("Get best dev performance at epoch {}, best dev f1 score is {}".format(self.best_dev_epoch, self.best_dev_metric))
             self.logger.info("Get best test performance at epoch {}, best test f1 score is {}".format(self.best_test_epoch, self.best_test_metric))
+            self._save_results(self.train_data, mode='train')
 
     def evaluate(self, epoch):
         self.model.eval()
@@ -184,7 +187,8 @@ class RETrainer(BaseTrainer):
                     self.writer.add_scalar(tag='test_loss', scalar_value=total_loss/len(self.test_data))    # tensorbordx
                 total_loss = 0
                 self.logger.info("Test f1 score: {}, acc: {}.".format(micro_f1, acc))
-                    
+
+        self._save_results(self.test_data, mode='test')
         self.model.train()
         
     def _step(self, batch, mode="train"):
@@ -210,10 +214,51 @@ class RETrainer(BaseTrainer):
                 {'params': [p for n, p in self.model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
         ]
         self.optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.args.lr)
-        self.scheduler = get_linear_schedule_with_warmup(optimizer=self.optimizer, 
-                                                            num_warmup_steps=self.args.warmup_ratio*self.train_num_steps, 
+        self.scheduler = get_linear_schedule_with_warmup(optimizer=self.optimizer,
+                                                            num_warmup_steps=self.args.warmup_ratio*self.train_num_steps,
                                                                 num_training_steps=self.train_num_steps)
         self.model.to(self.args.device)
+
+
+    def _save_results(self, dataloader, mode='train'):
+        """Save inputs and model outputs to result directory."""
+        self.model.eval()
+        result_dir = os.path.join(os.getcwd(), 'result')
+        os.makedirs(result_dir, exist_ok=True)
+        src_file = self.processor.data_path[mode]
+        dst_file = os.path.join(result_dir, f"{mode}_groundtruth.json")
+        try:
+            shutil.copy(src_file, dst_file)
+        except Exception:
+            pass
+
+        id2rel = {v: k for k, v in self.re_dict.items()}
+        preds = []
+        with torch.no_grad():
+            for batch in dataloader:
+                batch = (t.to(self.args.device) if isinstance(t, torch.Tensor) else t for t in batch)
+                (_, logits), _ = self._step(batch, mode="dev")
+                pred = logits.argmax(-1)
+                preds.extend(pred.view(-1).detach().cpu().tolist())
+
+        data = dataloader.dataset.data_dict
+        words = data['words']
+        heads = data['heads']
+        tails = data['tails']
+        imgids = data['imgids']
+        result_path = os.path.join(result_dir, f"{mode}_result.json")
+        with open(result_path, 'w', encoding='utf-8') as f:
+            for i in range(len(words)):
+                item = {
+                    'token': words[i],
+                    'h': heads[i],
+                    't': tails[i],
+                    'img_id': imgids[i],
+                    'relation': id2rel.get(preds[i], '')
+                }
+                json.dump(item, f, ensure_ascii=False)
+                f.write('\n')
+        self.model.train()
 
     
     def before_multimodal_train(self):
@@ -352,11 +397,12 @@ class NERTrainer(BaseTrainer):
                     self.logger.info("Save checkpoint at {}".format(ckpt_path))
 
             torch.cuda.empty_cache()
-            
+
             pbar.close()
             self.pbar = None
             self.logger.info("Get best dev performance at epoch {}, best dev f1 score is {}".format(self.best_dev_epoch, self.best_dev_metric))
             self.logger.info("Get best test performance at epoch {}, best test f1 score is {}".format(self.best_test_epoch, self.best_test_metric))
+            self._save_results(self.train_data, mode='train')
 
     def evaluate(self, epoch):
         self.model.eval()
@@ -471,9 +517,10 @@ class NERTrainer(BaseTrainer):
                     self.writer.add_scalar(tag='test_loss', scalar_value=total_loss/len(self.test_data))    # tensorbordx
                 total_loss = 0
                 self.logger.info("Test f1 score: {}.".format(f1_score))
-                    
+
+        self._save_results(self.test_data, mode='test')
         self.model.train()
-        
+
     def _step(self, batch, mode="train"):
         if self.args.use_prompt:
             # input_ids, token_type_ids, attention_mask, labels, images, aux_imgs = batch
@@ -489,6 +536,49 @@ class NERTrainer(BaseTrainer):
 
         logits, loss = output.logits, output.loss
         return attention_mask, labels, logits, loss
+
+
+    def _save_results(self, dataloader, mode='train'):
+        """Save inputs and model outputs to result directory."""
+        self.model.eval()
+        result_dir = os.path.join(os.getcwd(), 'result')
+        os.makedirs(result_dir, exist_ok=True)
+        src_file = self.processor.data_path[mode]
+        dst_file = os.path.join(result_dir, f"{mode}_groundtruth.json")
+        try:
+            shutil.copy(src_file, dst_file)
+        except Exception:
+            pass
+
+        idx2label = {idx: label for label, idx in self.label_map.items()}
+        preds = []
+        with torch.no_grad():
+            for batch in dataloader:
+                batch = (t.to(self.args.device) if isinstance(t, torch.Tensor) else t for t in batch)
+                attention_mask, labels, logits, _ = self._step(batch, mode="dev")
+                if isinstance(logits, torch.Tensor):
+                    logits = logits.argmax(-1).detach().cpu().numpy()
+                mask = attention_mask.detach().cpu().numpy()
+                for row, mask_line in enumerate(mask):
+                    pred_line = []
+                    for column, m in enumerate(mask_line):
+                        if column == 0:
+                            continue
+                        if m:
+                            label = idx2label[logits[row][column]]
+                            if label not in ("X", "[SEP]"):
+                                pred_line.append(label)
+                        else:
+                            break
+                    preds.append(pred_line)
+
+        words = dataloader.dataset.data_dict['words']
+        result_path = os.path.join(result_dir, f"{mode}_result.json")
+        with open(result_path, 'w', encoding='utf-8') as f:
+            for w, p in zip(words, preds):
+                json.dump({'words': w, 'prediction': p}, f, ensure_ascii=False)
+                f.write('\n')
+        self.model.train()
 
 
 
