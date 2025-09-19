@@ -57,9 +57,24 @@ def log_detailed_results(true_labels, pred_labels, rel2id, logger):
     total_samples = int(cm.sum())
     total_success = int(cm.trace())
     total_fail = int(total_samples - total_success)
+    success_details = []
+    total_details = []
     for idx, name in enumerate(names):
         total = int(cm[idx].sum())
         success = int(cm[idx][idx])
         fail = int(total - success)
+        success_details.append(str(success))
+        total_details.append(str(total))
         logger.info(f"类别{name}: 总数{total}, 成功{success}, 失败{fail}")
     logger.info(f"总计: 总数{total_samples}, 成功{total_success}, 失败{total_fail}")
+    accuracy = float(total_success) / float(total_samples) if total_samples else 0.0
+    success_expr = "+".join(success_details) if success_details else "0"
+    total_expr = "+".join(total_details) if total_details else "0"
+    logger.info(
+        "关系判断正确Accuracy = {成功{"
+        f"{success_expr}={total_success}" 
+        "}}/{总数{"
+        f"{total_expr}={total_samples}"
+        "}} = "
+        f"{accuracy:.4f}"
+    )
