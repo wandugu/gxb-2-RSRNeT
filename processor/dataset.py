@@ -16,7 +16,11 @@ class MMREProcessor(object):
         self.data_path = data_path
         self.re_path = data_path['re_path']
         # self.tokenizer = BertTokenizer.from_pretrained(bert_name, do_lower_case=True)
-        self.tokenizer = RobertaTokenizer.from_pretrained('roberta-base', do_lower_case=True)
+        self.tokenizer = RobertaTokenizer.from_pretrained(
+            bert_name,                 # <- 用 run.py 传进来的 args.bert_name
+            do_lower_case=True,
+            local_files_only=True
+        )
         # self.tokenizer = XLMRobertaTokenizer.from_pretrained('xlm-roberta-base',do_lower_case=True)
         self.tokenizer.add_special_tokens({'additional_special_tokens':['<s>', '</s>', '<o>', '</o>']})
 

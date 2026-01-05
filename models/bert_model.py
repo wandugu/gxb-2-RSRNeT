@@ -8,7 +8,11 @@ from transformers.modeling_outputs import TokenClassifierOutput
 # from torchvision.models import resnet50
 from transformers import RobertaModel, RobertaConfig, XLMRobertaModel, AlbertModel,BertModel,DistilBertPreTrainedModel
 from fairseq.models.roberta import XLMRModel
-from torchvision.models import resnet50, ResNet50_Weights
+from torchvision.models import resnet50
+try:
+    from torchvision.models import ResNet50_Weights
+except ImportError:
+    ResNet50_Weights = None
 
 class ImageModel(nn.Module):
     def __init__(self, weight_path=None):
@@ -213,7 +217,10 @@ class HMNeTNERModel(nn.Module):
         # self.bert = torch.hub.load('pytorch/fairseq:main', 'xlmr.base')
         # self.bert = XLMRModel.from_pretrained('xlmr.base')
         # self.bert = FlaubertModel.from_pretrained('flaubert-base')
-        self.bert = XLMRobertaModel.from_pretrained('xlm-roberta-base')
+        self.bert = XLMRobertaModel.from_pretrained(
+            getattr(self.args, "xlmr_name", "xlm-roberta-base"),
+            local_files_only=True
+        )
         # self.bert = DistilBertPreTrainedModel.from_pretrained('distilbert-base-uncased')
         # self.bert = AutoModelForMaskedLM.from_pretrained("xlm-roberta-base")
         # self.bert = AlbertModel.from_pretrained('albert-base-v2')
