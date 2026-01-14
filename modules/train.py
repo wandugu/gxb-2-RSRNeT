@@ -11,6 +11,45 @@ from transformers.optimization import get_linear_schedule_with_warmup
 
 from .metrics import eval_result, log_detailed_results
 
+DEFAULT_TEST_SAMPLE_LABELS = {
+    "sample": "测试样本",
+    "input": "输入",
+    "true_answer": "正确答案",
+    "pred_answer": "模型预测",
+}
+
+
+def format_re_test_sample_log(sample_index, total_samples, words, head, tail, true_rel, pred_rel, labels):
+    merged_labels = {**DEFAULT_TEST_SAMPLE_LABELS, **(labels or {})}
+    input_text = " ".join(words)
+    head_text = _extract_entity_text(words, head)
+    tail_text = _extract_entity_text(words, tail)
+    true_triplet = [(head_text, true_rel, tail_text)]
+    pred_triplet = [(head_text, pred_rel, tail_text)]
+    return (
+        f"{merged_labels['sample']} {sample_index}/{total_samples}\n"
+        f"{merged_labels['input']}={input_text}\n"
+        f"{merged_labels['true_answer']}={true_triplet}\n"
+        f"{merged_labels['pred_answer']}={pred_triplet}"
+    )
+
+
+def _extract_entity_text(words, entity):
+    if not entity:
+        return ""
+    name = entity.get("name")
+    if name:
+        return name
+    pos = entity.get("pos")
+    if not pos or len(pos) != 2:
+        return ""
+    start, end = pos
+    if start is None or end is None:
+        return ""
+    if end <= start:
+        return " ".join(words[start:start + 1])
+    return " ".join(words[start:end])
+
 class BaseTrainer(object):
     def train(self):
         raise NotImplementedError()
@@ -22,7 +61,7 @@ class BaseTrainer(object):
         raise NotImplementedError()
 
 class RETrainer(BaseTrainer):
-    def __init__(self, train_data=None, dev_data=None, test_data=None, model=None, processor=None, args=None, logger=None,  writer=None) -> None:
+    def __init__(self, train_data=None, dev_data=None, test_data=None, model=None, processor=None, args=None, logger=None,  writer=None, config=None) -> None:
         self.train_data = train_data
         self.dev_data = dev_data
         self.test_data = test_data
@@ -31,6 +70,8 @@ class RETrainer(BaseTrainer):
         self.re_dict = processor.get_relation_dict()
         self.logger = logger
         self.writer = writer
+        self.config = config or {}
+        self.test_sample_labels = self.config.get("logging", {}).get("test_sample_labels", {})
         self.refresh_step = 2
         self.best_dev_metric = 0
         self.best_test_metric = 0
@@ -170,11 +211,15 @@ class RETrainer(BaseTrainer):
             print("Unexpected keys:", unexpected)
             self.logger.info("Load model successful!")
         true_labels, pred_labels = [], []
+        dataset = self.test_data.dataset
+        total_samples = len(dataset)
+        sample_offset = 0
+        id2rel = {v: k for k, v in self.re_dict.items()}
         with torch.no_grad():
             with tqdm(total=len(self.test_data), leave=False, dynamic_ncols=True) as pbar:
                 pbar.set_description_str(desc="Testing")
                 total_loss = 0
-                for batch in self.test_data:
+                for batch_index, batch in enumerate(self.test_data, start=1):
                     batch = (tup.to(self.args.device)  if isinstance(tup, torch.Tensor) else tup for tup in batch)  # to cpu/cuda device  
                     (loss, logits), labels = self._step(batch, mode="dev")    # logits: batch, 3
                     total_loss += loss.detach().cpu().item()
@@ -182,6 +227,44 @@ class RETrainer(BaseTrainer):
                     preds = logits.argmax(-1)
                     true_labels.extend(labels.view(-1).detach().cpu().tolist())
                     pred_labels.extend(preds.view(-1).detach().cpu().tolist())
+                    self.logger.debug(
+                        "测试批次 %d: logits shape=%s, labels shape=%s",
+                        batch_index,
+                        tuple(logits.shape),
+                        tuple(labels.shape),
+                    )
+                    batch_true = labels.view(-1).detach().cpu().tolist()
+                    batch_pred = preds.view(-1).detach().cpu().tolist()
+                    batch_size = len(batch_true)
+                    for i in range(batch_size):
+                        sample_index = sample_offset + i
+                        if sample_index >= total_samples:
+                            break
+                        words = dataset.data_dict["words"][sample_index]
+                        head = dataset.data_dict["heads"][sample_index]
+                        tail = dataset.data_dict["tails"][sample_index]
+                        true_rel = id2rel.get(batch_true[i], "")
+                        pred_rel = id2rel.get(batch_pred[i], "")
+                        log_message = format_re_test_sample_log(
+                            sample_index + 1,
+                            total_samples,
+                            words,
+                            head,
+                            tail,
+                            true_rel,
+                            pred_rel,
+                            self.test_sample_labels,
+                        )
+                        self.logger.info(log_message)
+                        self.logger.debug(
+                            "测试样本 %d 详情: head=%s tail=%s true_id=%s pred_id=%s",
+                            sample_index + 1,
+                            head,
+                            tail,
+                            batch_true[i],
+                            batch_pred[i],
+                        )
+                    sample_offset += batch_size
                     
                     pbar.update()
                 # evaluate done
@@ -304,7 +387,7 @@ class RETrainer(BaseTrainer):
 
 
 class NERTrainer(BaseTrainer):
-    def __init__(self, train_data=None, dev_data=None, test_data=None, model=None, processor=None, label_map=None, args=None, logger=None,  writer=None) -> None:
+    def __init__(self, train_data=None, dev_data=None, test_data=None, model=None, processor=None, label_map=None, args=None, logger=None,  writer=None, config=None) -> None:
         self.train_data = train_data
         self.dev_data = dev_data
         self.test_data = test_data
@@ -313,6 +396,7 @@ class NERTrainer(BaseTrainer):
         self.logger = logger
         self.label_map = label_map
         self.writer = writer
+        self.config = config or {}
         self.refresh_step = 2
         self.best_dev_metric = 0
         self.best_test_metric = 0

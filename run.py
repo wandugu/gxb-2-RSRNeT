@@ -2,6 +2,7 @@ import os
 import argparse
 import logging
 import sys
+import yaml
 
 sys.path.append("..")
 
@@ -19,11 +20,7 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 # from tensorboardX import SummaryWriter
 
-logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
-                    datefmt='%m/%d/%Y %H:%M:%S',
-                    level=logging.INFO)
 logger = logging.getLogger(__name__)
-logging.getLogger().setLevel(logging.INFO)
 
 MODEL_CLASSES = {
     'MRE': HMNeTREModel,
@@ -118,8 +115,23 @@ def set_seed(seed=2021):
     np.random.seed(seed)
     random.seed(seed)
 
+def load_config(config_path):
+    if not os.path.exists(config_path):
+        return {}
+    with open(config_path, "r", encoding="utf-8") as file:
+        return yaml.safe_load(file) or {}
 
 def main():
+    config = load_config(os.path.join(os.path.dirname(__file__), "config.yaml"))
+    log_config = config.get("logging", {})
+    log_level_name = log_config.get("level", "INFO").upper()
+    log_level = getattr(logging, log_level_name, logging.INFO)
+    log_format = log_config.get("format", "%(asctime)s - %(levelname)s - %(name)s -   %(message)s")
+    log_datefmt = log_config.get("datefmt", "%m/%d/%Y %H:%M:%S")
+    logging.basicConfig(format=log_format, datefmt=log_datefmt, level=log_level)
+    logging.getLogger().setLevel(log_level)
+    logger.debug("Loaded config from %s: %s", os.path.join(os.path.dirname(__file__), "config.yaml"), config)
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset_name', default='MRE', type=str, help="The name of dataset.")
     parser.add_argument('--bert_name', default='bert-base-uncased', type=str, help="Pretrained language model path")
@@ -193,14 +205,14 @@ def main():
         model = HMNeTREModel(num_labels, tokenizer, args=args)
 
         trainer = Trainer(train_data=train_dataloader, dev_data=dev_dataloader, test_data=test_dataloader, model=model,
-                          processor=processor, args=args, logger=logger, writer=writer)
+                          processor=processor, args=args, logger=logger, writer=writer, config=config)
     else:  # NER task
         label_mapping = processor.get_label_mapping()
         label_list = list(label_mapping.keys())
         model = HMNeTNERModel(label_list, args)
 
         trainer = Trainer(train_data=train_dataloader, dev_data=dev_dataloader, test_data=test_dataloader, model=model,
-                          label_map=label_mapping, args=args, logger=logger, writer=writer)
+                          label_map=label_mapping, args=args, logger=logger, writer=writer, config=config)
 
     if args.do_train:
         # train
