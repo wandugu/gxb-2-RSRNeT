@@ -1,0 +1,6 @@
+logging:
+  level: INFO
+  sample_prefix: "测试样本"
+  input_label: "输入"
+  gold_label: "正确答案"
+  pred_label: "模型预测"
