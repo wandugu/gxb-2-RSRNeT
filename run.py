@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 from models.bert_model import HMNeTREModel, HMNeTNERModel
 from processor.dataset import MMREProcessor, MMPNERProcessor, MMREDataset, MMPNERDataset
 from modules.train import RETrainer, NERTrainer
+from modules.logging_utils import load_logging_config
 
 import warnings
 
@@ -23,7 +24,9 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message
                     datefmt='%m/%d/%Y %H:%M:%S',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
-logging.getLogger().setLevel(logging.INFO)
+logging_config = load_logging_config(logger)
+logging_level = getattr(logging, str(logging_config.get("level", "INFO")).upper(), logging.INFO)
+logging.getLogger().setLevel(logging_level)
 
 MODEL_CLASSES = {
     'MRE': HMNeTREModel,

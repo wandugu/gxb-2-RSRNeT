@@ -10,6 +10,7 @@ from seqeval.metrics import classification_report
 from transformers.optimization import get_linear_schedule_with_warmup
 
 from .metrics import eval_result, log_detailed_results
+from .logging_utils import load_logging_config
 
 class BaseTrainer(object):
     def train(self):
@@ -41,6 +42,8 @@ class RETrainer(BaseTrainer):
             self.train_num_steps = len(self.train_data) * args.num_epochs
         self.step = 0
         self.args = args
+        self.logging_config = load_logging_config(self.logger)
+        self.id2rel = {v: k for k, v in self.re_dict.items()}
         if self.args.use_prompt:
             self.before_multimodal_train()
         else:
@@ -158,18 +161,29 @@ class RETrainer(BaseTrainer):
             self.model.load_state_dict(torch.load(self.args.load_path))
             self.logger.info("Load model successful!")
         true_labels, pred_labels = [], []
+        total_samples = len(self.test_data.dataset)
+        self.logger.debug("测试集总样本数: %s", total_samples)
         with torch.no_grad():
             with tqdm(total=len(self.test_data), leave=False, dynamic_ncols=True) as pbar:
                 pbar.set_description_str(desc="Testing")
                 total_loss = 0
+                global_offset = 0
                 for batch in self.test_data:
-                    batch = (tup.to(self.args.device)  if isinstance(tup, torch.Tensor) else tup for tup in batch)  # to cpu/cuda device  
+                    raw_batch = batch
+                    batch = (tup.to(self.args.device) if isinstance(tup, torch.Tensor) else tup for tup in batch)
                     (loss, logits), labels = self._step(batch, mode="dev")    # logits: batch, 3
                     total_loss += loss.detach().cpu().item()
                     
                     preds = logits.argmax(-1)
                     true_labels.extend(labels.view(-1).detach().cpu().tolist())
                     pred_labels.extend(preds.view(-1).detach().cpu().tolist())
+                    self.logger.debug(
+                        "测试批次: offset=%s, batch_size=%s",
+                        global_offset,
+                        labels.size(0),
+                    )
+                    self._log_test_samples(raw_batch, labels, preds, global_offset, total_samples)
+                    global_offset += labels.size(0)
                     
                     pbar.update()
                 # evaluate done
@@ -190,6 +204,38 @@ class RETrainer(BaseTrainer):
 
         self._save_results(self.test_data, mode='test')
         self.model.train()
+
+    def _log_test_samples(self, raw_batch, labels, preds, global_offset, total_samples):
+        words = self.test_data.dataset.data_dict["words"]
+        heads = self.test_data.dataset.data_dict["heads"]
+        tails = self.test_data.dataset.data_dict["tails"]
+        batch_size = labels.size(0)
+        ids = list(range(global_offset, min(global_offset + batch_size, total_samples)))
+        for idx in ids:
+            input_text = " ".join(words[idx])
+            head = heads[idx]["name"]
+            tail = tails[idx]["name"]
+            gold_relation = self.id2rel.get(int(labels[idx - global_offset].item()), "")
+            pred_relation = self.id2rel.get(int(preds[idx - global_offset].item()), "")
+            gold_tuple = [(head, gold_relation, tail)]
+            pred_tuple = [(head, pred_relation, tail)]
+            sample_no = idx + 1
+            header = f"{self.logging_config['sample_prefix']} {sample_no}/{total_samples}"
+            message = (
+                f"{header}\n"
+                f"{self.logging_config['input_label']}={input_text}\n"
+                f"{self.logging_config['gold_label']}={gold_tuple}\n"
+                f"{self.logging_config['pred_label']}={pred_tuple}"
+            )
+            self.logger.info(message)
+            self.logger.debug(
+                "日志样本详情: idx=%s, head=%s, tail=%s, gold=%s, pred=%s",
+                idx,
+                head,
+                tail,
+                gold_relation,
+                pred_relation,
+            )
         
     def _step(self, batch, mode="train"):
         if mode != "predict":
