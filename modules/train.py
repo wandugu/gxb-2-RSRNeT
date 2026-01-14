@@ -58,7 +58,13 @@ class RETrainer(BaseTrainer):
 
         if self.args.load_path is not None:  # load model from load_path
             self.logger.info("Loading model from {}".format(self.args.load_path))
-            self.model.load_state_dict(torch.load(self.args.load_path))
+            state = torch.load(self.args.load_path, map_location="cpu")
+            # 兼容有的 ckpt 包了一层
+            if isinstance(state, dict) and "state_dict" in state:
+                state = state["state_dict"]
+            missing, unexpected = self.model.load_state_dict(state, strict=False)
+            print("Missing keys:", missing)
+            print("Unexpected keys:", unexpected)
             self.logger.info("Load model successful!")
         
         with tqdm(total=self.train_num_steps, postfix='loss:{0:<6.5f}', leave=False, dynamic_ncols=True, initial=self.step) as pbar:
@@ -155,7 +161,13 @@ class RETrainer(BaseTrainer):
         
         if self.args.load_path is not None:  # load model from load_path
             self.logger.info("Loading model from {}".format(self.args.load_path))
-            self.model.load_state_dict(torch.load(self.args.load_path))
+            state = torch.load(self.args.load_path, map_location="cpu")
+            # 兼容有的 ckpt 包了一层
+            if isinstance(state, dict) and "state_dict" in state:
+                state = state["state_dict"]
+            missing, unexpected = self.model.load_state_dict(state, strict=False)
+            print("Missing keys:", missing)
+            print("Unexpected keys:", unexpected)
             self.logger.info("Load model successful!")
         true_labels, pred_labels = [], []
         with torch.no_grad():
@@ -331,7 +343,13 @@ class NERTrainer(BaseTrainer):
 
         if self.args.load_path is not None:  # load model from load_path
             self.logger.info("Loading model from {}".format(self.args.load_path))
-            self.model.load_state_dict(torch.load(self.args.load_path))
+            state = torch.load(self.args.load_path, map_location="cpu")
+            # 兼容有的 ckpt 包了一层
+            if isinstance(state, dict) and "state_dict" in state:
+                state = state["state_dict"]
+            missing, unexpected = self.model.load_state_dict(state, strict=False)
+            print("Missing keys:", missing)
+            print("Unexpected keys:", unexpected)
             self.logger.info("Load model successful!")
 
         with tqdm(total=self.train_num_steps, postfix='loss:{0:<6.5f}', leave=False, dynamic_ncols=True, initial=self.step) as pbar:
@@ -475,7 +493,13 @@ class NERTrainer(BaseTrainer):
 
         if self.args.load_path is not None:  # load model from load_path
             self.logger.info("Loading model from {}".format(self.args.load_path))
-            self.model.load_state_dict(torch.load(self.args.load_path))
+            state = torch.load(self.args.load_path, map_location="cpu")
+            # 兼容有的 ckpt 包了一层
+            if isinstance(state, dict) and "state_dict" in state:
+                state = state["state_dict"]
+            missing, unexpected = self.model.load_state_dict(state, strict=False)
+            print("Missing keys:", missing)
+            print("Unexpected keys:", unexpected)
             self.logger.info("Load model successful!")
         y_true, y_pred = [], []
         with torch.no_grad():

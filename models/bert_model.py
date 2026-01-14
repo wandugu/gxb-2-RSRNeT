@@ -22,7 +22,7 @@ class ImageModel(nn.Module):
         # self.resnet = torch.hub.load('zhanghang1989/ResNeSt', 'resnest50', pretrained=True)
         super().__init__()
         # 不用默认权重，避免联网下载
-        self.resnet = resnet50(weights=None)
+        self.resnet = resnet50(pretrained=False)
 
         if weight_path:
             state = torch.load(weight_path, map_location="cpu")
