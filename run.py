@@ -130,6 +130,13 @@ def main():
     log_datefmt = log_config.get("datefmt", "%m/%d/%Y %H:%M:%S")
     logging.basicConfig(format=log_format, datefmt=log_datefmt, level=log_level)
     logging.getLogger().setLevel(log_level)
+    logger_levels = log_config.get("logger_levels", {})
+    for logger_name, level_name in logger_levels.items():
+        level_value = getattr(logging, str(level_name).upper(), None)
+        if level_value is None:
+            continue
+        logging.getLogger(logger_name).setLevel(level_value)
+        logger.debug("Set logger %s level to %s", logger_name, level_name)
     logger.debug("Loaded config from %s: %s", os.path.join(os.path.dirname(__file__), "config.yaml"), config)
 
     parser = argparse.ArgumentParser()
